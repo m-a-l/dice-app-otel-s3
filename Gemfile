@@ -74,3 +74,7 @@ end
 gem "opentelemetry-sdk", "~> 1.3"
 gem "opentelemetry-instrumentation-all", "~> 0.39.1"
 # gem "opentelemetry-instrumentation-all"
+
+gem "aws-sdk-s3", "~> 1.132"
+
+gem "pry-byebug", "~> 3.10", :group => :development
