@@ -1,0 +1,10 @@
+version: "3.4"
+services:
+  localstack:
+      image: localstack/localstack
+      environment:
+        - SERVICES=s3
+        - DEBUG=1
+      ports:
+        - "4566:4566"
+        - "8080:8080"
