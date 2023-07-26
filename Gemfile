@@ -74,3 +74,7 @@ end
 gem "opentelemetry-sdk", "~> 1.3"
 gem "opentelemetry-instrumentation-all", "~> 0.39.1"
 # gem "opentelemetry-instrumentation-all"
+
+gem "opentelemetry-exporter-otlp", "~> 0.26.0"
+
+gem "pry-byebug", "~> 3.10", :group => :development
