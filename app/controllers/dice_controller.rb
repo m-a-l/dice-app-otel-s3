@@ -1,6 +1,27 @@
 # frozen_string_literal: true
 require 'aws-sdk-s3'
 
+class OpenTelemetryAdapter
+  def self.inject_trace_context(target:)
+    OpenTelemetry.propagation.inject(target)
+  end
+
+  def self.in_span(tracer_name:, span_name:, kind:, attributes: nil, links: [], &block)
+    tracer = ::OpenTelemetry.tracer_provider.tracer(tracer_name)
+    tracer.in_span(
+      span_name,
+      attributes: attributes,
+      kind: kind,
+      links: links,
+      &block
+    )
+  end
+
+  def self.add_attributes(attributes)
+    OpenTelemetry::Trace.current_span.add_attributes(attributes)
+  end
+end
+
 # Roll a dice !
 class DiceController < ApplicationController
   def s3
@@ -14,37 +35,28 @@ class DiceController < ApplicationController
   end
 
   def index
-    file_name = 'dice-roll.txt'
-    @dice_roll = rand(1..6).to_s
-    logger.info "roll: #{@dice_roll}"
-    File.write("storage/#{file_name}", "roll: #{@dice_roll}")
-    logger.info "written to file #{file_name}"
-    upload_to_s3(file_name)
+    OpenTelemetryAdapter.in_span(
+      tracer_name: 'ruby_dice_app',
+      span_name: "writing to s3",
+      kind: :producer
+    ) { upload_to_s3 }
   end
 
-  def upload_to_s3(file_name)
-    # binding.pry
-    tracer = OpenTelemetry.tracer_provider.tracer('dice-app')
-    tracer.start_span('my_span')
-    carrier = {}
-    OpenTelemetry.propagation.inject(carrier)
-    # tracer.inject(span.context, OpenTelemetry::Context.current, carrier)
-    bucket_name = 'dice-app-bucket'
-    key = 'dice-roll-s3.txt'
-    metadata = { 'trace-context': carrier.to_json }
-    File.open("storage/#{file_name}", 'rb') do |file|
-      s3.put_object(
-        bucket: bucket_name,
-        key: key,
-        body: file,
-        metadata: metadata
-      )
-    end
+  def upload_to_s3
+    metadata = {}
+
+    OpenTelemetryAdapter.inject_trace_context(target: metadata)
+    s3.put_object(bucket: 'dice-app-bucket', key: 'file_name.txt', body: 'object content', metadata: metadata)
   end
 
   def retrieve
-    metadata = s3.head_object(bucket: 'dice-app-bucket', key: 'dice-roll-s3.txt').metadata
-    context = OpenTelemetry.propagation.extract(JSON.parse(metadata['trace-context']))
-    # binding.pry
+    metadata = s3.head_object(bucket: 'dice-app-bucket', key: 'file_name.txt').metadata
+    context = OpenTelemetry.propagation.extract(metadata)
+    tracer = ::OpenTelemetry.tracer_provider.tracer('second service')
+    span = tracer.start_span('consuming from s3', with_parent: context)
+
+    p "some hard calculations"
+    2 + 2
+    span.finish
   end
 end
