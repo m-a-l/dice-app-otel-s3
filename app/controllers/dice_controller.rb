@@ -43,8 +43,9 @@ class DiceController < ApplicationController
   end
 
   def upload_to_s3
+    # empty hash that will hold the context
     metadata = {}
-
+    # inject the context in the hash
     OpenTelemetryAdapter.inject_trace_context(target: metadata)
     s3.put_object(bucket: 'dice-app-bucket', key: 'file_name.txt', body: 'object content', metadata: metadata)
   end
@@ -53,6 +54,7 @@ class DiceController < ApplicationController
     metadata = s3.head_object(bucket: 'dice-app-bucket', key: 'file_name.txt').metadata
     context = OpenTelemetry.propagation.extract(metadata)
     tracer = ::OpenTelemetry.tracer_provider.tracer('second service')
+    # After extracting the context information from the metadata, force the parent of the next span to be the span that uploaded the file via with_parent:
     span = tracer.start_span('consuming from s3', with_parent: context)
 
     p "some hard calculations"
