@@ -10,5 +10,7 @@ OpenTelemetry::SDK.configure do |c|
   # prints stack error to stdout
   c.error_handler = ->(exception:, message:) { raise(exception || message) }
   c.logger = Logger.new($stderr, level: ENV.fetch('OTEL_LOG_LEVEL', 'fatal').to_sym)
+  # config = { 'OpenTelemetry::Instrumentation::AwsSdk' => { enabled: false } }
+  # c.use_all(config)
   c.use_all() # enables all instrumentation!
 end

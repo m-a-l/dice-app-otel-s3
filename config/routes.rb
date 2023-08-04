@@ -3,5 +3,5 @@ Rails.application.routes.draw do
 
   # Defines the root path route ("/")
   root "dice#index"
-  get '/retrieve', to: 'dice#retrieve'
+  get '/fake_worker', to: 'dice#fake_worker'
 end
