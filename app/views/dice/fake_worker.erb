@@ -1,0 +1,9 @@
+Hard calculations : <%= @hard_calculations %>
+
+<h3>The file</h3>
+<%= debug @s3_file_object %>
+<h3>Meta data</h3>
+<%= @s3_file_object.metadata %>
+<h3>Body</h3>
+<%= @s3_file_object.body.read %>
+
