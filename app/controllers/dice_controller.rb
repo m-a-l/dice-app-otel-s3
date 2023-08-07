@@ -54,21 +54,29 @@ class DiceController < ApplicationController
     metadata = {}
     # inject the context in the hash
     OpenTelemetryAdapter.inject_trace_context(target: metadata)
+    # We could have other keys in there
+    metadata = metadata.merge({ a_key: 'test', b_key: 'test' })
     File.open("storage/#{@file_name}", 'rb') do |file|
       @s3.put_object(bucket: ENV.fetch('BUCKET_NAME'), key: @file_name, body: file, metadata: metadata)
     end
   end
 
   def fake_worker
+    # To get only the head we would use : @s3.head_object(bucket: ENV['BUCKET_NAME'], key: @file_name).metadata
     @s3_file_object = @s3.get_object(bucket: ENV.fetch('BUCKET_NAME'), key: @file_name)
-    # metadata = @s3.head_object(bucket: ENV['BUCKET_NAME'], key: @file_name).metadata
-    context = OpenTelemetry.propagation.extract(@s3_file_object.metadata)
+    # instance of OpenTelemetry::Context
+    parent_context = OpenTelemetry.propagation.extract(@s3_file_object.metadata)
+    # instance of OpenTelemetry::Trace::SpanContext, this will be used as a link,
+    # as the new span will appear as a child of the write span and not of the actual current span
+    current_context = OpenTelemetry::Trace.current_span(parent_context).context
+    link = OpenTelemetry::Trace::Link.new(current_context)
     tracer = ::OpenTelemetry.tracer_provider.tracer('fake_worker_tracer')
     # After extracting the context information from the metadata,
     # force the parent of the next span to be the uploading span:
-    span = tracer.start_span('consuming from s3 and performing hard calculations', with_parent: context)
+    span = tracer.start_span('consuming from s3 and performing hard calculations', with_parent: parent_context, links: [link])
     @hard_calculations = 2 + 2
-    span.finish # this is necessary as we dont use in_span.
+    span.finish
+    # closing the span is necessary as we dont use in_span.
     # We don't use in_span because with_parent is not available on it.
   end
 end
